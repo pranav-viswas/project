@@ -284,7 +284,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.2); }
           <path d="M36 12v6" stroke="#3d4a58" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         <div class="ph-title">NO FEED ACTIVE</div>
-        <div class="ph-sub">Choose camera, video, or image mode. Upload a reference photo when you need to follow one exact person through a live feed.</div>
+        <div class="ph-sub">Upload a video file and enter a query to start detection. Use PHOTO + TEXT mode to follow a specific person.</div>
       </div>
       <img id="live-feed" alt="Detection feed"/>
       <canvas id="image-result"></canvas>
@@ -311,7 +311,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.2); }
 </div>
 
 <script>
-const API = "http://localhost:5050/api";
+const API = window.location.origin + "/api";
 const token = localStorage.getItem("operatorToken");
 if (!token) window.location.href = "/login";
 
@@ -339,11 +339,13 @@ setInterval(() => {
 
 function setMode(nextMode) {
   mode = nextMode;
-  document.querySelectorAll(".mode-tab").forEach((button, idx) => {
-    button.classList.toggle("active", ["cam", "video", "image"][idx] === nextMode);
+  document.querySelectorAll(".mode-tab").forEach((button) => {
+    button.classList.toggle("active", button.getAttribute("onclick") === `setMode('${nextMode}')`);
   });
-  document.getElementById("video-upload").style.display = nextMode === "video" ? "block" : "none";
-  document.getElementById("image-upload").style.display = nextMode === "image" ? "block" : "none";
+  const videoUpload = document.getElementById("video-upload");
+  const imageUpload = document.getElementById("image-upload");
+  if (videoUpload) videoUpload.style.display = nextMode === "video" ? "block" : "none";
+  if (imageUpload) imageUpload.style.display = nextMode === "image" ? "block" : "none";
 }
 
 function setQueryMode(nextMode) {
@@ -528,6 +530,11 @@ function startPolling() {
       document.getElementById("match-val").textContent = status.matches;
       document.getElementById("fps-val").textContent = Math.round(status.fps);
       document.getElementById("sb-matches").textContent = status.matches;
+      document.getElementById("sb-persons").textContent = status.persons || 0;
+      if (status.running) {
+        document.getElementById("sb-source").textContent = "VIDEO";
+        document.getElementById("sb-status").textContent = "RUNNING";
+      }
 
       if (frameData.frame) {
         const img = document.getElementById("live-feed");
@@ -553,6 +560,7 @@ function startPolling() {
       if (!status.running) {
         setRunning(false);
         polling = null;
+        document.getElementById("sb-status").textContent = "VIDEO ENDED";
         loadReports();
         return;
       }
@@ -611,36 +619,44 @@ async function loadReports() {
     const res = await authFetch(`${API}/reports`);
     const data = await res.json();
     const list = document.getElementById("reports-list");
-    if (!data.reports || !data.reports.length) return;
-    list.innerHTML = data.reports.map((report) => {
-      const label = report.session_name || report.id || "session";
-      const count = report.match_count ?? 0;
-      return `<div class="report-item" onclick="viewReport('${report.id}')">
-        <span>${label}</span>
-        <span style="color:var(--accent)">${count} MATCHES</span>
-      </div>`;
-    }).join("");
+    const events = data.events || [];
+    if (!events.length) return;
+    const sessionName = data.session || "Session";
+    const matchCount = events.length;
+    list.innerHTML = `<div class="report-item">
+      <span>${sessionName}</span>
+      <span style="color:var(--accent)">${matchCount} MATCHES</span>
+    </div>`;
   } catch (error) {}
 }
 
 async function viewReport(reportId) {
-  const res = await authFetch(`${API}/reports/${reportId}`);
-  const data = await res.json();
-  document.getElementById("events-list").innerHTML = "";
-  knownEvents = 0;
-  const events = data.events || data;
-  events.forEach((evt) => addEvent({
-    timestamp: evt.timestamp,
-    confidence: evt.confidence,
-    query: evt.query || data.query_info?.content || "",
-    frame: evt.frame,
-    shot: evt.shot
-  }));
+  try {
+    const res = await authFetch(`${API}/reports`);
+    const data = await res.json();
+    document.getElementById("events-list").innerHTML = "";
+    knownEvents = 0;
+    const events = data.events || [];
+    events.forEach((evt) => addEvent({
+      timestamp: evt.timestamp,
+      confidence: evt.confidence,
+      query: evt.query || data.session || "",
+      frame: evt.frame,
+      shot: evt.shot
+    }));
+  } catch (e) {}
 }
 
 setMode("video");
 setQueryMode("text");
 loadReports();
+
+// Auto-fill query if coming from dashboard global search
+const autoQuery = sessionStorage.getItem("auto_query");
+if (autoQuery) {
+  document.getElementById("query-input").value = autoQuery;
+  sessionStorage.removeItem("auto_query");
+}
 </script>
 </body>
 </html>
