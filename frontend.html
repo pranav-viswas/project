@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartSearch - Natural Language Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg-color: #05050A;
+  --glass-bg: rgba(20, 22, 35, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-blur: blur(20px);
+  --text-main: #FFFFFF;
+  --text-muted: #8E9BAE;
+  --accent-primary: #6366F1;
+  --accent-secondary: #A855F7;
+  --accent-glow: rgba(99, 102, 241, 0.4);
+  --green: #10B981;
+  --red: #EF4444;
+  --font-main: 'Inter', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --bg: transparent; --surface: var(--glass-bg); --surface2: rgba(255,255,255,0.05);
+  --border: var(--glass-border); --border2: rgba(255,255,255,0.1);
+  --text: var(--text-main); --text2: var(--text-muted); --text3: rgba(255,255,255,0.3);
+  --accent: var(--accent-primary); --mono: var(--font-mono); --sans: var(--font-main);
+}
+body {
+  background-color: var(--bg-color);
+  background-image: radial-gradient(circle at 10% 20%, rgba(99,102,241,0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(168,85,247,0.15) 0%, transparent 40%);
+  background-size: 200% 200%; animation: bgDrift 20s ease infinite alternate;
+  color: var(--text-main); font-family: var(--font-main); font-size: 14px;
+  min-height: 100vh; display: flex; flex-direction: column; overflow: auto;
+}
+@keyframes bgDrift { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
+@keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0.2 } }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 8px rgba(99,102,241,0.8); } 50% { box-shadow: 0 0 20px rgba(168,85,247,1); transform: scale(1.2); } }
+@keyframes fadeIn { from { opacity:0; transform:translateX(10px) } to { opacity:1; transform:translateX(0) } }
+@keyframes slideDown { from { transform:translateY(-100%) } to { transform:translateY(0) } }
+
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:56px; background:rgba(20,22,35,0.7); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border-bottom:1px solid var(--glass-border); flex-shrink:0; z-index:10; }
+.topbar-left { display:flex; align-items:center; gap:16px; }
+.logo { font-family:var(--font-heading); font-size:18px; font-weight:700; background:linear-gradient(to right, #fff, #a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:-0.5px; }
+.logo span { -webkit-text-fill-color: rgba(165,180,252,0.6); }
+.badge { font-family:var(--font-mono); font-size:9px; padding:3px 8px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.35); color:#a5b4fc; border-radius:4px; letter-spacing:0.1em; }
+.status-pill { display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:6px; font-family:var(--font-heading); font-size:12px; background:var(--surface2); border:1px solid var(--border); font-weight:600; }
+.dot { width:8px; height:8px; border-radius:50%; background:var(--text3); }
+.dot.active { background:var(--green); box-shadow:0 0 10px var(--green); }
+.dot.alert { background:var(--red); animation:blink 0.6s ease-in-out infinite; }
+.topbar-right { display:flex; align-items:center; gap:20px; font-family:var(--font-mono); font-size:12px; color:var(--text-muted); }
+.topbar-right span b { color:var(--text-main); font-weight:400; }
+
+.main { display:grid; grid-template-columns:330px 1fr 320px; flex:1; overflow:hidden; height:calc(100vh - 56px); gap:16px; padding:16px; }
+.main > * { min-height: 0; } /* Prevent grid items from pushing row height */
+.panel { background:var(--glass-bg); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:var(--glass-shadow); }
+.panel-header { padding:16px; border-bottom:1px solid var(--glass-border); font-family:var(--font-heading); font-size:13px; font-weight:700; letter-spacing:1.5px; color:#fff; display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.2); text-transform:uppercase; }
+.panel-header::before { content:''; display:block; width:8px; height:8px; border-radius:50%; background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary)); box-shadow:0 0 10px rgba(99,102,241,0.8); animation:pulse 2s ease-in-out infinite; flex-shrink:0; }
+.panel-body { padding:16px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+
+label.fl { font-family:var(--font-main); font-size:10px; font-weight:700; letter-spacing:1.5px; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:8px; background:linear-gradient(90deg,var(--accent-primary),var(--accent-secondary)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+
+.mode-tabs,.query-tabs { display:flex; gap:3px; background:rgba(0,0,0,0.4); border-radius:10px; padding:4px; border:1px solid rgba(99,102,241,0.2); box-shadow:0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05); }
+.mode-tab,.query-tab { flex:1; padding:9px 4px; text-align:center; border-radius:7px; cursor:pointer; font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--text-muted); transition:all 0.25s cubic-bezier(0.16,1,0.3,1); letter-spacing:1px; border:none; background:transparent; }
+.mode-tab:hover,.query-tab:hover { color:#fff; background:rgba(99,102,241,0.15); }
+.mode-tab.active,.query-tab.active { background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary)); color:#fff; box-shadow:0 4px 15px rgba(99,102,241,0.4); text-shadow:0 0 12px rgba(255,255,255,0.3); }
+
+.query-box { position:relative; }
+.query-box textarea { width:100%; background:rgba(5,5,15,0.6); border:1px solid rgba(99,102,241,0.25); border-radius:10px; padding:12px 14px; color:var(--text-main); font-family:var(--font-main); font-size:13px; outline:none; resize:none; height:88px; line-height:1.5; transition:all 0.25s; box-shadow:0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04); }
+.query-box textarea:focus { border-color:var(--accent-primary); box-shadow:0 0 0 3px rgba(99,102,241,0.15), 0 2px 8px rgba(0,0,0,0.3); }
+.query-box textarea::placeholder { color:rgba(255,255,255,0.2); }
+.query-hint { font-family:var(--font-mono); font-size:9px; color:rgba(255,255,255,0.2); margin-top:5px; line-height:1.6; }
+.examples-wrap { display:flex; flex-wrap:wrap; gap:5px; }
+.ex-chip { padding:5px 10px; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:20px; font-size:11px; color:var(--text-muted); cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.ex-chip:hover { border-color:var(--accent-primary); color:#fff; background:rgba(99,102,241,0.2); }
+
+input[type=file] { width:100%; background:rgba(5,5,15,0.6); border:1px dashed rgba(99,102,241,0.3); border-radius:10px; padding:10px 12px; cursor:pointer; color:var(--text-muted); font-family:var(--font-main); font-size:12px; transition:border-color 0.2s; }
+input[type=file]:hover { border-color:var(--accent-primary); }
+input[type=file]::-webkit-file-upload-button { background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(168,85,247,0.3)); border:1px solid rgba(99,102,241,0.4); color:#fff; padding:6px 14px; border-radius:7px; cursor:pointer; font-family:var(--font-mono); font-weight:700; font-size:10px; letter-spacing:1px; margin-right:12px; transition:all 0.2s; }
+
+.reference-panel { display:flex; flex-direction:column; gap:10px; padding:12px; background:rgba(99,102,241,0.05); border:1px solid rgba(99,102,241,0.15); border-radius:10px; }
+.reference-preview { display:none; align-items:center; gap:10px; padding:8px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); border-radius:8px; }
+.reference-preview img { width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--glass-border); }
+.reference-meta { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.reference-name { font-family:var(--font-mono); font-size:10px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.reference-note { font-size:11px; color:var(--text-muted); line-height:1.5; }
+.stack-note { padding:9px 12px; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:8px; font-size:11px; line-height:1.55; color:var(--text-muted); }
+.stack-note b { color:#a5b4fc; font-weight:600; }
+
+.slider-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.slider-val { font-family:var(--font-mono); font-size:13px; font-weight:700; background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+input[type=range] { width:100%; -webkit-appearance:none; height:3px; border-radius:2px; outline:none; background:linear-gradient(90deg,var(--accent-primary) 0%,var(--accent-secondary) 100%); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary)); cursor:pointer; border:2px solid rgba(255,255,255,0.9); box-shadow:0 0 15px rgba(99,102,241,0.7), 0 2px 6px rgba(0,0,0,0.4); transition:transform 0.15s; }
+input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.2); }
+.threshold-guide { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-top:8px; }
+.tg-item { padding:5px 6px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:6px; text-align:center; font-family:var(--font-mono); font-size:9px; line-height:1.5; }
+.tg-val { color:var(--accent-primary); display:block; }
+.tg-label { color:rgba(255,255,255,0.2); }
+
+.btn { width:100%; padding:14px; border:none; border-radius:10px; cursor:pointer; font-family:var(--font-heading); font-size:13px; font-weight:700; letter-spacing:1px; transition:all 0.3s cubic-bezier(0.16,1,0.3,1); position:relative; overflow:hidden; }
+.btn::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,0.1),transparent); opacity:0; transition:opacity 0.3s; }
+.btn:hover::after { opacity:1; }
+.btn-primary { background:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7); color:#fff; box-shadow:0 4px 20px rgba(99,102,241,0.5), 0 0 0 1px rgba(255,255,255,0.1) inset; text-shadow:0 1px 3px rgba(0,0,0,0.3); }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(99,102,241,0.6); }
+.btn-primary:active { transform:translateY(0); }
+.btn-stop { background:rgba(239,68,68,0.08); color:var(--red); border:1px solid rgba(239,68,68,0.4); letter-spacing:1px; }
+.btn-stop:hover { background:rgba(239,68,68,0.15); box-shadow:0 0 20px rgba(239,68,68,0.2); transform:translateY(-1px); }
+.divider { border:none; height:1px; margin:4px 0; background:linear-gradient(90deg,transparent,rgba(99,102,241,0.3),transparent); }
+
+.center { background:transparent; display:flex; flex-direction:column; overflow:hidden; flex:1; }
+.feed-area { flex:1; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; background:rgba(0,0,0,0.4); border:1px solid var(--glass-border); border-radius:12px; box-shadow:inset 0 0 30px rgba(0,0,0,0.5); }
+.feed-placeholder { display:flex; flex-direction:column; align-items:center; gap:16px; color:rgba(255,255,255,0.2); }
+.feed-placeholder svg { opacity:0.4; }
+.feed-placeholder .ph-title { font-family:var(--font-mono); font-size:13px; letter-spacing:1px; text-transform:uppercase; }
+.feed-placeholder .ph-sub { font-size:12px; color:rgba(255,255,255,0.2); max-width:280px; text-align:center; line-height:1.6; }
+#live-feed,#image-result { max-width:100%; max-height:100%; object-fit:contain; display:none; }
+.feed-overlay { position:absolute; top:16px; left:16px; display:none; flex-direction:column; gap:8px; pointer-events:none; }
+.fo-chip { font-family:var(--font-mono); font-size:11px; background:rgba(20,22,35,0.85); backdrop-filter:blur(4px); border:1px solid var(--glass-border); padding:6px 12px; border-radius:6px; color:var(--text-muted); display:flex; gap:8px; align-items:center; }
+.fo-chip b { color:var(--accent-primary); font-weight:400; }
+.alert-banner { position:absolute; top:0; left:0; right:0; background:rgba(239,68,68,0.9); backdrop-filter:blur(8px); color:#fff; font-family:var(--font-heading); font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; text-align:center; padding:12px; display:none; z-index:100; animation:slideDown 0.3s cubic-bezier(0.16,1,0.3,1); }
+.statusbar { height:40px; background:rgba(20,22,35,0.7); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-top:1px solid var(--glass-border); display:flex; align-items:center; padding:0 24px; gap:32px; font-family:var(--font-mono); font-size:11px; color:var(--text-muted); flex-shrink:0; }
+.statusbar b { color:var(--text-main); font-weight:400; }
+
+.right-panel { background:var(--glass-bg); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:var(--glass-shadow); }
+.events-list { flex:1; overflow-y:auto; padding:8px; }
+.event-item { padding:12px; border:1px solid transparent; border-bottom-color:var(--glass-border); display:flex; flex-direction:column; gap:6px; animation:fadeIn 0.3s ease; cursor:pointer; border-radius:8px; transition:all 0.2s; }
+.event-item:hover { background:rgba(255,255,255,0.03); border-color:rgba(255,255,255,0.1); }
+.ev-time { font-family:var(--font-mono); font-size:12px; color:var(--accent-primary); }
+.ev-score { font-family:var(--font-main); font-size:11px; font-weight:500; color:var(--text-muted); }
+.ev-score b { color:var(--green); font-weight:600; }
+.ev-query { font-size:11px; color:var(--text-muted); line-height:1.4; font-style:italic; }
+.conf-bar { height:4px; background:rgba(0,0,0,0.3); border-radius:2px; margin-top:4px; overflow:hidden; }
+.conf-fill { height:100%; background:linear-gradient(90deg,var(--accent-secondary),var(--accent-primary)); border-radius:2px; transition:width 0.4s; }
+.empty-log { padding:32px 16px; text-align:center; font-family:var(--font-mono); font-size:10px; color:rgba(255,255,255,0.2); line-height:2; }
+.reports-section { border-top:1px solid var(--glass-border); padding:12px 16px; max-height:160px; overflow-y:auto; background:rgba(0,0,0,0.1); }
+.report-item { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; justify-content:space-between; gap:12px; transition:all 0.2s; margin-bottom:4px; }
+.report-item:hover { color:var(--text-main); background:rgba(255,255,255,0.05); }
+
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.3); }
+@media (max-width:1200px) { .main{grid-template-columns:300px 1fr} .right-panel{display:none} }
+@media (max-width:860px) { 
+  body{overflow:auto} 
+  .main{display:flex;flex-direction:column;height:auto;gap:12px;padding:12px;} 
+  .center{order:-1} /* Keep video feed at the top on mobile */
+  .feed-area{height:50vh;min-height:300px} 
+  .statusbar{flex-wrap:wrap;height:auto;padding:10px 16px;gap:16px} 
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo">SmartSearch</div>
+    <a href="/dashboard" style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text-main); text-decoration: none; padding: 4px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 3px; letter-spacing: 0.1em; transition: all 0.2s;">DASHBOARD</a>
+    <a href="/monitor" style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text-main); text-decoration: none; padding: 4px 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 3px; letter-spacing: 0.1em; transition: all 0.2s; margin-left: 8px;">MONITOR</a>
+    <div class="badge">PHOTO + TEXT + REID</div>
+    <div class="status-pill">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text" style="color:var(--text2)">STANDBY</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="clock">--:--:--</span>
+    <span>FPS <b id="fps-val">--</b></span>
+    <span>FRAMES <b id="frame-val">0</b></span>
+    <span>MATCHES <b id="match-val" style="color:var(--accent)">0</b></span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="panel">
+    <div class="panel-header">Detection Control</div>
+    <div class="panel-body">
+      <div>
+        <label class="fl">Input source</label>
+        <div class="mode-tabs">
+          <button class="mode-tab active" onclick="setMode('video')">VIDEO UPLOAD</button>
+        </div>
+      </div>
+
+      <div id="video-upload" style="display:block">
+        <label class="fl">Video file</label>
+        <input type="file" id="video-file" accept="video/*"/>
+      </div>
+
+      <div>
+        <label class="fl">Search mode</label>
+        <div class="query-tabs">
+          <button class="query-tab active" onclick="setQueryMode('text')">TEXT ONLY</button>
+          <button class="query-tab" onclick="setQueryMode('photo')">PHOTO + TEXT</button>
+        </div>
+      </div>
+
+      <div id="reference-section" style="display:none">
+        <label class="fl">Reference photo</label>
+        <div class="reference-panel">
+          <input type="file" id="query-image-file" accept="image/*"/>
+          <div class="reference-preview" id="reference-preview">
+            <img id="reference-preview-img" alt="Reference preview"/>
+            <div class="reference-meta">
+              <div class="reference-name" id="reference-preview-name"></div>
+              <div class="reference-note">The system will combine face cues, body re-identification, and image-text similarity.</div>
+            </div>
+          </div>
+          <div class="stack-note">
+            <b>Best for live feed and video:</b> upload a clear face or full-body photo, then add a short description to keep the tracker stable through pose changes, partial occlusion, or distance.
+          </div>
+        </div>
+      </div>
+
+      <div id="image-upload" style="display:none">
+        <label class="fl">Scene image to analyze</label>
+        <input type="file" id="image-file" accept="image/*"/>
+      </div>
+
+      <div>
+        <div class="query-box">
+          <textarea id="query-input" placeholder="e.g. man in black shirt with backpack&#10;girl with white cap and red handbag" style="height:70px"></textarea>
+        </div>
+      </div>
+
+      <div>
+        <label class="fl">Quick examples</label>
+        <div class="examples-wrap">
+          <span class="ex-chip" onclick="setQuery('person from uploaded photo with black backpack')">photo + backpack</span>
+          <span class="ex-chip" onclick="setQuery('old man with beard')">old man beard</span>
+          <span class="ex-chip" onclick="setQuery('woman in a saree')">saree</span>
+          <span class="ex-chip" onclick="setQuery('person wearing glasses and white shirt')">glasses</span>
+          <span class="ex-chip" onclick="setQuery('boy with dog')">boy with dog</span>
+          <span class="ex-chip" onclick="setQuery('blue jacket black pants')">blue jacket</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="slider-row">
+          <label class="fl" style="margin:0">Sensitivity</label>
+          <span class="slider-val" id="threshold-val">0.22</span>
+        </div>
+        <input type="range" min="0.18" max="0.32" step="0.01" value="0.22" id="threshold-slider"
+               oninput="document.getElementById('threshold-val').textContent=parseFloat(this.value).toFixed(2)"/>
+        <div class="threshold-guide">
+          <div class="tg-item"><span class="tg-val">0.18-0.20</span><span class="tg-label">High recall</span></div>
+          <div class="tg-item"><span class="tg-val">0.22-0.24</span><span class="tg-label">Balanced</span></div>
+          <div class="tg-item"><span class="tg-val">0.26-0.32</span><span class="tg-label">Precise</span></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="start-btn" onclick="startDetection()">START DETECTION</button>
+      <button class="btn btn-stop" id="stop-btn" onclick="stopDetection()" style="display:none">STOP</button>
+
+      <hr class="divider"/>
+
+      <div>
+        <div class="slider-row">
+          <label class="fl" style="margin:0">Skip frames</label>
+          <span class="slider-val" id="skip-val">2</span>
+        </div>
+        <input type="range" min="1" max="6" step="1" value="2" id="skip-slider"
+               oninput="document.getElementById('skip-val').textContent=this.value"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="center">
+    <div class="feed-area">
+      <div class="alert-banner" id="alert-banner">TARGET DETECTED</div>
+      <div class="feed-overlay" id="feed-overlay">
+        <div class="fo-chip">MODE <b id="ol-mode">-</b></div>
+        <div class="fo-chip" id="ol-query-chip" style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">QUERY <b id="ol-query">-</b></div>
+      </div>
+      <div class="feed-placeholder" id="feed-placeholder">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+          <rect x="9" y="18" width="54" height="40" rx="4" stroke="#3d4a58" stroke-width="1.5"/>
+          <circle cx="36" cy="38" r="11" stroke="#3d4a58" stroke-width="1.5"/>
+          <circle cx="36" cy="38" r="4.5" stroke="#3d4a58" stroke-width="1.5"/>
+          <path d="M9 26h6M57 26h6" stroke="#3d4a58" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M30 12h12" stroke="#3d4a58" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M36 12v6" stroke="#3d4a58" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="ph-title">NO FEED ACTIVE</div>
+        <div class="ph-sub">Choose camera, video, or image mode. Upload a reference photo when you need to follow one exact person through a live feed.</div>
+      </div>
+      <img id="live-feed" alt="Detection feed"/>
+      <canvas id="image-result"></canvas>
+    </div>
+
+    <div class="statusbar">
+      <span>STATUS <b id="sb-status">IDLE</b></span>
+      <span>SOURCE <b id="sb-source">-</b></span>
+      <span>PERSONS <b id="sb-persons">0</b></span>
+      <span>MATCHES <b id="sb-matches" style="color:var(--accent)">0</b></span>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-header">Detection Log</div>
+    <div class="events-list" id="events-list">
+      <div class="empty-log">No detections yet.<br/>Results appear here<br/>in real time.</div>
+    </div>
+    <div class="reports-section">
+      <div class="panel-header" style="padding:0 0 8px;border:none;font-size:9px">Saved Sessions</div>
+      <div id="reports-list"><span style="font-family:var(--mono);font-size:10px;color:var(--text3)">None yet</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:5050/api";
+const token = localStorage.getItem("operatorToken");
+if (!token) window.location.href = "/login";
+
+async function authFetch(url, options = {}) {
+  const headers = options.headers || {};
+  headers["Authorization"] = "Bearer " + token;
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+  options.headers = headers;
+  const res = await fetch(url, options);
+  if (res.status === 401) window.location.href = "/login";
+  return res;
+}
+
+let mode = "video";
+let queryMode = "text";
+let polling = null;
+let alertTimeout = null;
+let knownEvents = 0;
+
+setInterval(() => {
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-GB");
+}, 1000);
+
+function setMode(nextMode) {
+  mode = nextMode;
+  document.querySelectorAll(".mode-tab").forEach((button, idx) => {
+    button.classList.toggle("active", ["cam", "video", "image"][idx] === nextMode);
+  });
+  document.getElementById("video-upload").style.display = nextMode === "video" ? "block" : "none";
+  document.getElementById("image-upload").style.display = nextMode === "image" ? "block" : "none";
+}
+
+function setQueryMode(nextMode) {
+  queryMode = nextMode;
+  document.querySelectorAll(".query-tab").forEach((button, idx) => {
+    button.classList.toggle("active", ["text", "photo"][idx] === nextMode);
+  });
+  document.getElementById("reference-section").style.display = nextMode === "photo" ? "block" : "none";
+}
+
+function setQuery(text) {
+  document.getElementById("query-input").value = text;
+}
+
+function requireReferencePhoto() {
+  if (queryMode !== "photo") return null;
+  const file = document.getElementById("query-image-file").files[0];
+  if (!file) {
+    alert("Upload a reference photo first.");
+    return false;
+  }
+  return file;
+}
+
+document.getElementById("query-image-file").addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  const preview = document.getElementById("reference-preview");
+  if (!file) {
+    preview.style.display = "none";
+    return;
+  }
+  document.getElementById("reference-preview-name").textContent = file.name;
+  document.getElementById("reference-preview-img").src = URL.createObjectURL(file);
+  preview.style.display = "flex";
+});
+
+async function startDetection() {
+  if (mode === "image") {
+    await analyzeImage();
+    return;
+  }
+
+  const query = document.getElementById("query-input").value.trim();
+  const referenceFile = requireReferencePhoto();
+  if (referenceFile === false) return;
+  if (!query && !referenceFile) {
+    alert("Add a description or upload a reference photo.");
+    return;
+  }
+
+  const body = new FormData();
+  body.append("query", query);
+  body.append("threshold", document.getElementById("threshold-slider").value);
+  body.append("skip_frames", document.getElementById("skip-slider").value);
+  body.append("source_type", mode);
+  if (referenceFile) body.append("query_image", referenceFile);
+
+  if (mode === "video") {
+    const file = document.getElementById("video-file").files[0];
+    if (!file) {
+      alert("Select a video file first.");
+      return;
+    }
+    body.append("video_file", file);
+  }
+
+  const res = await authFetch(`${API}/start`, { method: "POST", body });
+  const data = await res.json();
+  if (data.error) {
+    alert(data.error);
+    return;
+  }
+
+  knownEvents = 0;
+  setRunning(true);
+  document.getElementById("ol-mode").textContent = mode.toUpperCase();
+  document.getElementById("ol-query").textContent = query || "REFERENCE PHOTO";
+  startPolling();
+}
+
+async function analyzeImage() {
+  const sceneFile = document.getElementById("image-file").files[0];
+  const query = document.getElementById("query-input").value.trim();
+  const referenceFile = requireReferencePhoto();
+  if (referenceFile === false) return;
+  if (!sceneFile) {
+    alert("Select a scene image first.");
+    return;
+  }
+  if (!query && !referenceFile) {
+    alert("Add a description or upload a reference photo.");
+    return;
+  }
+
+  setRunning(true);
+  document.getElementById("sb-status").textContent = "ANALYZING";
+
+  const body = new FormData();
+  body.append("image", sceneFile);
+  body.append("query", query);
+  body.append("threshold", document.getElementById("threshold-slider").value);
+  if (referenceFile) body.append("query_image", referenceFile);
+
+  const res = await authFetch(`${API}/analyze_image`, { method: "POST", body });
+  const data = await res.json();
+
+  if (data.error) {
+    alert(data.error);
+    setRunning(false);
+    return;
+  }
+
+  const canvas = document.getElementById("image-result");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    canvas.style.display = "block";
+    document.getElementById("live-feed").style.display = "none";
+    document.getElementById("feed-placeholder").style.display = "none";
+    document.getElementById("feed-overlay").style.display = "flex";
+  };
+  img.src = "data:image/jpeg;base64," + data.frame;
+
+  document.getElementById("ol-mode").textContent = "IMAGE";
+  document.getElementById("ol-query").textContent = data.query_label || query || "REFERENCE PHOTO";
+  document.getElementById("sb-persons").textContent = data.persons_found;
+  document.getElementById("sb-matches").textContent = data.matches;
+  document.getElementById("match-val").textContent = data.matches;
+  document.getElementById("sb-status").textContent = "DONE";
+
+  if (data.matches > 0) {
+    const best = data.results.find((item) => item.matched);
+    addEvent({
+      timestamp: "IMAGE",
+      confidence: best ? best.confidence : 0,
+      query: data.query_label || query || "reference photo",
+      frame: 0,
+      shot: best ? best.shot : null
+    });
+    showAlert();
+  }
+  setRunning(false);
+}
+
+async function stopDetection() {
+  const res = await authFetch(`${API}/stop`, { method: "POST" });
+  const data = await res.json();
+  setRunning(false);
+  if (polling) {
+    clearTimeout(polling);
+    polling = null;
+  }
+  loadReports();
+  if (data.report) {
+    document.getElementById("sb-status").textContent = "SAVED · " + String(data.report).split("/").pop();
+  }
+}
+
+function normaliseShotPath(path) {
+  if (!path) return null;
+  if (path.startsWith("/reports/")) return path;
+  if (path.startsWith("reports/")) return "/" + path;
+  return "/reports/" + path;
+}
+
+function startPolling() {
+  if (polling) clearTimeout(polling);
+  
+  const poll = async () => {
+    try {
+      const [statusRes, frameRes] = await Promise.all([
+        authFetch(`${API}/status`),
+        authFetch(`${API}/frame`)
+      ]);
+      const status = await statusRes.json();
+      const frameData = await frameRes.json();
+
+      document.getElementById("frame-val").textContent = status.frame;
+      document.getElementById("match-val").textContent = status.matches;
+      document.getElementById("fps-val").textContent = Math.round(status.fps);
+      document.getElementById("sb-matches").textContent = status.matches;
+
+      if (frameData.frame) {
+        const img = document.getElementById("live-feed");
+        img.src = "data:image/jpeg;base64," + frameData.frame;
+        img.style.display = "block";
+        document.getElementById("image-result").style.display = "none";
+        document.getElementById("feed-placeholder").style.display = "none";
+        document.getElementById("feed-overlay").style.display = "flex";
+      }
+
+      if (status.events && status.events.length > knownEvents) {
+        status.events.slice(knownEvents).forEach((event) => addEvent({
+          timestamp: event.timestamp,
+          confidence: event.confidence,
+          query: event.query || status.query_label || event.attributes?.query || "",
+          frame: event.frame,
+          shot: event.shot
+        }));
+        knownEvents = status.events.length;
+        showAlert();
+      }
+
+      if (!status.running) {
+        setRunning(false);
+        polling = null;
+        loadReports();
+        return;
+      }
+    } catch (error) {}
+    
+    polling = setTimeout(poll, 150);
+  };
+  
+  poll();
+}
+
+function addEvent(evt) {
+  const list = document.getElementById("events-list");
+  const empty = list.querySelector(".empty-log");
+  if (empty) empty.remove();
+
+  const shotSrc = normaliseShotPath(evt.shot);
+  const item = document.createElement("div");
+  item.className = "event-item";
+  item.innerHTML = `
+    <div class="ev-time">${evt.timestamp}</div>
+    <div class="ev-score">Match confidence <b>${evt.confidence}%</b></div>
+    <div class="conf-bar"><div class="conf-fill" style="width:${evt.confidence}%"></div></div>
+    <div class="ev-query">"${evt.query || ""}"</div>
+    ${shotSrc ? `<img src="${shotSrc}" style="width:100%;margin-top:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.1)" alt="Detection snapshot"/>` : ""}
+  `;
+  list.insertBefore(item, list.firstChild);
+}
+
+function showAlert() {
+  const banner = document.getElementById("alert-banner");
+  banner.style.display = "block";
+  document.getElementById("status-dot").className = "dot alert";
+  if (alertTimeout) clearTimeout(alertTimeout);
+  alertTimeout = setTimeout(() => {
+    banner.style.display = "none";
+    if (document.getElementById("stop-btn").style.display !== "none") {
+      document.getElementById("status-dot").className = "dot active";
+    }
+  }, 3000);
+}
+
+function setRunning(active) {
+  document.getElementById("start-btn").style.display = active ? "none" : "block";
+  document.getElementById("stop-btn").style.display = active ? "block" : "none";
+  document.getElementById("status-dot").className = "dot" + (active ? " active" : "");
+  document.getElementById("status-text").textContent = active ? "ACTIVE" : "STANDBY";
+  document.getElementById("status-text").style.color = active ? "var(--green)" : "var(--text2)";
+  document.getElementById("sb-status").textContent = active ? "RUNNING" : "IDLE";
+  document.getElementById("sb-source").textContent = active ? mode.toUpperCase() : "-";
+  if (!active) document.getElementById("feed-overlay").style.display = "none";
+}
+
+async function loadReports() {
+  try {
+    const res = await authFetch(`${API}/reports`);
+    const data = await res.json();
+    const list = document.getElementById("reports-list");
+    if (!data.reports || !data.reports.length) return;
+    list.innerHTML = data.reports.map((report) => {
+      const label = report.session_name || report.id || "session";
+      const count = report.match_count ?? 0;
+      return `<div class="report-item" onclick="viewReport('${report.id}')">
+        <span>${label}</span>
+        <span style="color:var(--accent)">${count} MATCHES</span>
+      </div>`;
+    }).join("");
+  } catch (error) {}
+}
+
+async function viewReport(reportId) {
+  const res = await authFetch(`${API}/reports/${reportId}`);
+  const data = await res.json();
+  document.getElementById("events-list").innerHTML = "";
+  knownEvents = 0;
+  const events = data.events || data;
+  events.forEach((evt) => addEvent({
+    timestamp: evt.timestamp,
+    confidence: evt.confidence,
+    query: evt.query || data.query_info?.content || "",
+    frame: evt.frame,
+    shot: evt.shot
+  }));
+}
+
+setMode("video");
+setQueryMode("text");
+loadReports();
+</script>
+</body>
+</html>

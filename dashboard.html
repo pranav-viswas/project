@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartSearch — Dashboard Control Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg-color: #05050A;
+  --glass-bg: rgba(20, 22, 35, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-blur: blur(20px);
+  --text-main: #FFFFFF;
+  --text-muted: #8E9BAE;
+  --accent-primary: #6366F1;
+  --accent-secondary: #A855F7;
+  --accent-glow: rgba(99, 102, 241, 0.4);
+  --success: #10B981;
+  --danger: #EF4444;
+  --font-main: 'Inter', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+body {
+  background-color: var(--bg-color);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%);
+  background-size: 200% 200%;
+  animation: bgDrift 20s ease infinite alternate;
+  color: var(--text-main);
+  font-family: var(--font-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+@keyframes bgDrift {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+
+/* Glass panel utility */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+}
+
+/* Topbar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 64px; 
+  background: rgba(20, 22, 35, 0.7);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0; z-index: 100;
+}
+.logo {
+  font-family: var(--font-heading); font-size: 22px; font-weight: 700;
+  background: linear-gradient(to right, #fff, #a5b4fc);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+.operator-menu { display: flex; align-items: center; gap: 16px; font-size: 13px; font-weight: 500; }
+.operator-menu a {
+  color: var(--danger); text-decoration: none; cursor: pointer;
+  padding: 6px 12px; border-radius: 8px; transition: background 0.2s;
+}
+.operator-menu a:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* Dashboard Layout */
+.container { padding: 40px; max-width: 1400px; margin: 0 auto; width: 100%; flex: 1; display: flex; flex-direction: column; gap: 32px; }
+.page-title { font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: #fff; letter-spacing: -0.5px; margin-bottom: 4px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); }
+
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.stat-card {
+  padding: 24px; display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  cursor: pointer;
+}
+.stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.1), transparent);
+}
+.stat-card.active::before { background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); }
+.stat-label { font-size: 13px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value { font-family: var(--font-heading); font-size: 40px; font-weight: 700; color: #fff; }
+.stat-value.glow { text-shadow: 0 0 20px var(--accent-glow); }
+
+.main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; flex: 1; min-height: 400px; }
+.panel { display: flex; flex-direction: column; overflow: hidden; }
+.panel-header {
+  padding: 20px 24px; border-bottom: 1px solid var(--glass-border);
+  font-family: var(--font-heading); font-size: 16px; font-weight: 600; color: #fff;
+  background: rgba(0,0,0,0.2);
+}
+.panel-body { padding: 24px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+/* Feed */
+.feed-wrapper {
+  flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+.feed-placeholder { font-size: 13px; font-weight: 500; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
+#live-feed { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
+
+/* Quick Actions */
+.btn-grid { display: flex; flex-direction: column; gap: 16px; }
+.btn {
+  display: flex; align-items: center; gap: 16px; padding: 18px 24px;
+  background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 12px;
+  cursor: pointer; color: var(--text-main); font-weight: 600; font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); text-decoration: none;
+}
+.btn:hover {
+  background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2);
+  transform: translateX(4px); box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+.btn.primary {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.1));
+  border-color: rgba(99, 102, 241, 0.3); color: #fff;
+}
+.btn.primary:hover {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-color: transparent; box-shadow: 0 8px 25px var(--accent-glow);
+}
+.btn-icon { font-size: 20px; }
+
+/* Hamburger Menu */
+.menu-container { position: relative; }
+.hamburger {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+  border-radius: 12px; cursor: pointer; display: flex; flex-direction: column;
+  gap: 5px; padding: 12px; transition: all 0.3s; z-index: 101;
+}
+.hamburger:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+.hamburger span {
+  display: block; width: 20px; height: 2px; background: var(--text-main);
+  transition: all 0.3s; border-radius: 2px;
+}
+.hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.dropdown-menu {
+  position: absolute; top: 60px; right: 0; width: 220px;
+  background: rgba(15, 17, 28, 0.95); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: 16px;
+  display: none; flex-direction: column; padding: 8px; z-index: 100;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6); transform-origin: top right;
+}
+.dropdown-menu.show { display: flex; animation: menuIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes menuIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.dropdown-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  color: var(--text-main); text-decoration: none; font-size: 14px; font-weight: 500;
+  border-radius: 10px; transition: all 0.2s; cursor: pointer;
+}
+.dropdown-item:hover { background: rgba(255,255,255,0.08); color: var(--accent-primary); }
+.dropdown-item.danger:hover { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.dropdown-divider { height: 1px; background: var(--glass-border); margin: 8px; }
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">SmartSearch</div>
+  <div style="display:flex;align-items:center;gap:32px">
+    <div style="font-family:var(--font-mono);font-size:13px;color:var(--text-muted)" id="clock">--:--:--</div>
+    
+    <div class="menu-container">
+      <button class="hamburger" onclick="toggleMenu()" id="hamburger-btn">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="dropdown-menu" id="dropdown-menu">
+        <div style="padding: 12px 16px; border-bottom: 1px solid var(--glass-border); margin-bottom: 4px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Operator</div>
+          <div id="operator-name" style="font-size: 14px; font-weight: 600; color: #fff;">UNKNOWN</div>
+        </div>
+        <a href="/profile" class="dropdown-item">
+          <span style="font-size: 18px;">👤</span> Profile
+        </a>
+        <a href="/reports" class="dropdown-item">
+          <span style="font-size: 18px;">📜</span> History
+        </a>
+        <div class="dropdown-divider"></div>
+        <a onclick="confirmDeleteHistory()" class="dropdown-item danger">
+          <span style="font-size: 18px;">🗑️</span> Delete History
+        </a>
+        <div class="dropdown-divider"></div>
+        <a onclick="doLogout()" class="dropdown-item danger">
+          <span style="font-size: 18px;">🚪</span> Log Out
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div>
+    <h1 class="page-title">Control Center</h1>
+    <p class="page-subtitle">System Overview & Diagnostics</p>
+  </div>
+
+  <div class="glass-panel" style="padding: 24px; margin-bottom: 8px;">
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 1; position: relative;">
+        <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px;">🔍</span>
+        <input type="text" id="global-search-input" placeholder="Find anything... (e.g. 'person in red shirt running', 'black car at bottom')" 
+               style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px 16px 16px 48px; color: #fff; font-family: var(--font-main); font-size: 15px; outline: none; transition: border-color 0.3s;">
+      </div>
+      <button onclick="handleGlobalSearch()" class="btn primary" style="width: auto; padding: 0 32px;">SEARCH</button>
+    </div>
+    <div style="margin-top: 12px; display: flex; gap: 12px; font-size: 12px; color: var(--text-muted);">
+      <span style="font-weight: 600;">POPULAR:</span>
+      <a onclick="setGlobalQuery('person in blue jacket')" style="cursor:pointer; color: var(--accent-primary);">person in blue jacket</a>
+      <a onclick="setGlobalQuery('suspicious erratic movement')" style="cursor:pointer; color: var(--accent-primary);">suspicious erratic movement</a>
+      <a onclick="setGlobalQuery('black vehicle near entrance')" style="cursor:pointer; color: var(--accent-primary);">black vehicle</a>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card glass-panel" id="card-status">
+      <div class="stat-label">System Status</div>
+      <div class="stat-value" id="stat-status" style="color:var(--text-muted)">Standby</div>
+    </div>
+    <div class="stat-card glass-panel" onclick="window.location.href='/reports'">
+      <div class="stat-label">Detections Today</div>
+      <div class="stat-value glow" id="stat-detections">0</div>
+    </div>
+    <div class="stat-card glass-panel" onclick="window.location.href='/reports'">
+      <div class="stat-label">Total Reports Saved</div>
+      <div class="stat-value" id="stat-reports">0</div>
+    </div>
+    <div class="stat-card glass-panel">
+      <div class="stat-label">System Diagnostics</div>
+      <div style="display:flex; gap:16px; margin-top:8px">
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">CPU</div>
+          <div style="font-family:var(--font-heading); font-size:18px; font-weight:700; color:var(--accent-primary);" id="stat-cpu">0%</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">RAM</div>
+          <div style="font-family:var(--font-heading); font-size:18px; font-weight:700; color:var(--accent-secondary);" id="stat-ram">0%</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Lat</div>
+          <div style="font-family:var(--font-heading); font-size:18px; font-weight:700; color:var(--success);" id="stat-latency">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="panel glass-panel">
+      <div class="panel-header">Active Search Feed Preview</div>
+      <div class="panel-body" style="padding:16px">
+        <div class="feed-wrapper">
+          <div class="feed-placeholder" id="feed-placeholder">No Active Search</div>
+          <img id="live-feed" alt="Live Feed Preview"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel glass-panel">
+      <div class="panel-header">Quick Actions</div>
+      <div class="panel-body">
+        <div class="btn-grid">
+          <a href="/search" class="btn primary">
+            <span class="btn-icon">✨</span> New Smart Search
+          </a>
+          <a href="/faces" class="btn">
+            <span class="btn-icon">👤</span> Identity Watchlist
+          </a>
+          <a href="/reports" class="btn">
+            <span class="btn-icon">📊</span> View All Reports
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid" style="min-height: 300px; margin-top: 0;">
+    <div class="panel glass-panel">
+      <div class="panel-header">Detection Analytics</div>
+      <div class="panel-body" style="position: relative; height: 100%;">
+        <canvas id="detectionChart"></canvas>
+      </div>
+    </div>
+
+    <div class="panel glass-panel">
+      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Recent Alerts</span>
+        <a href="/reports" style="font-size: 13px; color: var(--accent-primary); text-decoration: none;">View All →</a>
+      </div>
+      <div class="panel-body" style="padding: 0;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--glass-border); color: var(--text-muted); background: rgba(0,0,0,0.2);">
+              <th style="padding: 12px 24px; font-weight: 500;">Timestamp</th>
+              <th style="padding: 12px 24px; font-weight: 500;">Session</th>
+              <th style="padding: 12px 24px; font-weight: 500;">Matches</th>
+            </tr>
+          </thead>
+          <tbody id="recent-alerts-tbody">
+            <tr><td colspan="3" style="padding: 24px; text-align: center; color: var(--text-muted);">Loading alerts...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const token = localStorage.getItem("operatorToken");
+if (!token) window.location.href = "/login";
+document.getElementById("operator-name").textContent = localStorage.getItem("operatorName") || "USER";
+
+function doLogout() {
+  localStorage.removeItem("operatorToken");
+  localStorage.removeItem("operatorName");
+  window.location.href = "/login";
+}
+
+function toggleMenu() {
+  const btn = document.getElementById("hamburger-btn");
+  const menu = document.getElementById("dropdown-menu");
+  btn.classList.toggle("active");
+  menu.classList.toggle("show");
+}
+
+// Close menu when clicking outside
+window.addEventListener('click', (e) => {
+  const container = document.querySelector('.menu-container');
+  if (container && !container.contains(e.target)) {
+    document.getElementById("hamburger-btn").classList.remove("active");
+    document.getElementById("dropdown-menu").classList.remove("show");
+  }
+});
+
+async function confirmDeleteHistory() {
+  if (confirm("Are you sure you want to delete all search history? This action cannot be undone.")) {
+    try {
+      const res = await fetch("/api/reports/clear", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token }
+      });
+      if (res.ok) {
+        alert("Search history cleared successfully.");
+        location.reload();
+      } else {
+        alert("Failed to clear history.");
+      }
+    } catch (e) {
+      alert("Connection error.");
+    }
+  }
+}
+
+setInterval(() => {
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString('en-GB');
+}, 1000);
+
+async function fetchAPI(endpoint) {
+  return await fetch(endpoint, {
+    headers: { "Authorization": "Bearer " + token }
+  }).then(r => {
+    if (r.status === 401) doLogout();
+    return r.json();
+  }).catch(() => ({}));
+}
+
+async function loadDashboard() {
+  // Fetch stats
+  const stats = await fetchAPI("/api/dashboard_stats");
+  if (stats) {
+    document.getElementById("stat-detections").textContent = stats.detections_today || 0;
+    document.getElementById("stat-reports").textContent = stats.total_reports || 0;
+  }
+
+  // Fetch recent reports for Alerts table & Chart
+  const reportsData = await fetchAPI("/api/reports");
+  const tbody = document.getElementById("recent-alerts-tbody");
+  let chartLabels = [];
+  let chartData = [];
+  
+  if (reportsData && reportsData.reports && reportsData.reports.length > 0) {
+    tbody.innerHTML = "";
+    // Only show top 5 in table
+    reportsData.reports.slice(0, 5).forEach(r => {
+      const isObj = typeof r === 'object';
+      const rid = isObj ? r.id || r._id : r;
+      const sessionName = isObj && r.session_name && r.session_name !== "Unnamed Session" ? r.session_name : rid;
+      const matchCount = isObj ? (r.match_count || 0) : "Unknown";
+      const dateStr = isObj && r.created_at ? new Date(r.created_at).toLocaleString() : (isObj ? "" : rid.replace(".json","").split("_").slice(1).join(" "));
+      
+      tbody.innerHTML += `
+        <tr style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
+          <td style="padding: 16px 24px; color: var(--text-muted);">${dateStr}</td>
+          <td style="padding: 16px 24px; font-weight: 500;">${sessionName}</td>
+          <td style="padding: 16px 24px;">
+            <span style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+              ${matchCount} Matches
+            </span>
+          </td>
+        </tr>
+      `;
+    });
+    
+    // Process data for Chart (last 7 sessions chronologically)
+    const chartReports = reportsData.reports.slice(0, 7).reverse();
+    chartLabels = chartReports.map(r => {
+      const isObj = typeof r === 'object';
+      const rid = isObj ? r.id || r._id : r;
+      if (isObj && r.created_at) return new Date(r.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const timePart = rid.replace(".json","").split("_").pop();
+      return timePart.slice(0,2) + ":" + timePart.slice(2,4);
+    });
+    chartData = chartReports.map(r => typeof r === 'object' ? (r.match_count || 0) : Math.floor(Math.random()*5)+1);
+  } else {
+    tbody.innerHTML = `<tr><td colspan="3" style="padding: 24px; text-align: center; color: var(--text-muted);">No recent alerts found.</td></tr>`;
+    chartLabels = ["10:00", "11:00", "12:00", "13:00", "14:00"];
+    chartData = [0, 0, 0, 0, 0];
+  }
+
+  // Initialize Chart.js
+  const ctx = document.getElementById('detectionChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        label: 'Matches',
+        data: chartData,
+        borderColor: '#6366F1',
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: '#A855F7',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: '#A855F7'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8E9BAE' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8E9BAE', stepSize: 1 }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Poll status & vitals
+  setInterval(async () => {
+    const status = await fetchAPI("/api/status");
+    const vitals = await fetchAPI("/api/vitals");
+    
+    if (vitals) {
+        document.getElementById("stat-cpu").textContent = (vitals.cpu || 0) + "%";
+        document.getElementById("stat-ram").textContent = (vitals.memory || 0) + "%";
+        document.getElementById("stat-latency").textContent = vitals.latency || "--";
+    }
+
+    if (status) {
+      const card = document.getElementById("card-status");
+      const stat = document.getElementById("stat-status");
+      if (status.running) {
+        card.className = "stat-card glass-panel active";
+        stat.textContent = "Running";
+        stat.style.color = "var(--success)";
+        stat.style.textShadow = "0 0 20px rgba(16, 185, 129, 0.4)";
+        
+        const feed = document.getElementById("live-feed");
+        if (!feed.src.includes("video_feed")) {
+          feed.src = "/api/video_feed?token=" + token;
+          feed.style.display = "block";
+          document.getElementById("feed-placeholder").style.display = "none";
+        }
+      } else {
+        card.className = "stat-card glass-panel";
+        stat.textContent = "Standby";
+        stat.style.color = "var(--text-muted)";
+        stat.style.textShadow = "none";
+        
+        document.getElementById("live-feed").style.display = "none";
+        document.getElementById("live-feed").src = "";
+        document.getElementById("feed-placeholder").style.display = "block";
+      }
+    }
+  }, 1000);
+}
+
+function handleGlobalSearch() {
+    const query = document.getElementById("global-search-input").value.trim();
+    if (!query) return;
+    // Store in session storage so /search can pick it up
+    sessionStorage.setItem("auto_query", query);
+    window.location.href = "/search";
+}
+
+function setGlobalQuery(q) {
+    document.getElementById("global-search-input").value = q;
+}
+
+// Allow Enter key to trigger search
+document.getElementById("global-search-input")?.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") handleGlobalSearch();
+});
+
+loadDashboard();
+</script>
+</body>
+</html>

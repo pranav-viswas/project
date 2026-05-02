@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartSearch — System Authentication</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet"/>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg-color: #05050A;
+  --glass-bg: rgba(20, 22, 35, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-blur: blur(20px);
+  --text-main: #FFFFFF;
+  --text-muted: #8E9BAE;
+  --accent-primary: #6366F1;
+  --accent-secondary: #A855F7;
+  --accent-glow: rgba(99, 102, 241, 0.4);
+  --danger: #EF4444;
+  --font-main: 'Inter', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+body {
+  background-color: var(--bg-color);
+  background-image: 
+    radial-gradient(circle at 20% 40%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 60%, rgba(168, 85, 247, 0.15) 0%, transparent 40%);
+  background-size: 200% 200%;
+  animation: bgDrift 15s ease infinite alternate;
+  color: var(--text-main);
+  font-family: var(--font-main);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+@keyframes bgDrift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+.login-box {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  padding: 48px 40px;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 420px;
+  animation: boxPop 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+  overflow: hidden;
+}
+.login-box::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+}
+@keyframes boxPop {
+  0% { transform: translateY(30px) scale(0.95); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.login-logo {
+  font-family: var(--font-heading); font-size: 28px; font-weight: 700;
+  text-align: center; margin-bottom: 8px;
+  background: linear-gradient(to right, #fff, #a5b4fc);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+.login-subtitle {
+  font-family: var(--font-main); font-size: 13px; color: var(--text-muted);
+  text-align: center; margin-bottom: 32px;
+}
+.login-tabs {
+  display: flex; margin-bottom: 32px; background: rgba(0,0,0,0.2);
+  border-radius: 12px; padding: 4px; border: 1px solid var(--glass-border);
+}
+.login-tab {
+  flex: 1; padding: 10px; text-align: center; font-family: var(--font-main);
+  font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer;
+  transition: all 0.3s; border: none; background: transparent; border-radius: 8px;
+}
+.login-tab:hover { color: var(--text-main); }
+.login-tab.active {
+  background: rgba(255,255,255,0.1); color: var(--text-main);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.login-group { margin-bottom: 20px; }
+.login-group label {
+  display: block; font-family: var(--font-main); font-size: 12px;
+  font-weight: 500; color: var(--text-muted); margin-bottom: 8px;
+}
+.input-wrapper {
+  position: relative; display: flex; align-items: center;
+}
+.login-group input {
+  width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border);
+  border-radius: 12px; padding: 14px 16px; color: var(--text-main);
+  font-family: var(--font-main); font-size: 14px; outline: none;
+  transition: all 0.3s;
+}
+.login-group input:focus {
+  border-color: var(--accent-primary); background: rgba(0,0,0,0.4);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+.pwd-toggle {
+  position: absolute; right: 12px; background: none; border: none;
+  color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 8px;
+  display: flex; align-items: center; justify-content: center; transition: color 0.2s;
+}
+.pwd-toggle:hover { color: var(--text-main); }
+.login-btn {
+  width: 100%; padding: 14px; margin-top: 10px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: #fff; border: none; border-radius: 12px;
+  font-family: var(--font-heading); font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.3s ease;
+  box-shadow: 0 4px 15px var(--accent-glow);
+}
+.login-btn:hover {
+  transform: translateY(-2px); box-shadow: 0 6px 20px var(--accent-glow); filter: brightness(1.1);
+}
+.login-error {
+  color: var(--danger); font-family: var(--font-main); font-size: 12px;
+  text-align: center; margin-top: 16px; display: none; font-weight: 500;
+  background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2);
+  animation: shake 0.4s ease-in-out;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.divider {
+  display: flex; align-items: center; text-align: center; margin: 28px 0;
+  font-family: var(--font-main); font-size: 11px; color: var(--text-muted); font-weight: 500;
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; border-bottom: 1px solid var(--glass-border);
+}
+.divider::before { margin-right: 12px; }
+.divider::after { margin-left: 12px; }
+.google-btn-wrapper {
+  display: flex; justify-content: center; width: 100%; margin-top: 10px;
+}
+.pwd-hint {
+  font-family: var(--font-main); font-size: 11px; color: var(--text-muted);
+  margin-top: 8px; display: none;
+}
+</style>
+</head>
+<body>
+
+<div class="login-box">
+  <div class="login-logo">SmartSearch</div>
+  <div class="login-subtitle">Sign in to your workspace</div>
+  
+  <div class="login-tabs">
+    <button class="login-tab active" onclick="setLoginMode('login')" id="tab-login">Sign In</button>
+    <button class="login-tab" onclick="setLoginMode('register')" id="tab-register">Create Account</button>
+  </div>
+  
+  <div class="login-group">
+    <label for="login-user">Username</label>
+    <input type="text" id="login-user" placeholder="Enter your username" autocomplete="username"/>
+  </div>
+  <div class="login-group">
+    <label for="login-pass">Password</label>
+    <div class="input-wrapper">
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" style="padding-right: 44px;"/>
+      <button type="button" class="pwd-toggle" id="toggle-pass" onclick="togglePassword()">👁</button>
+    </div>
+    <div class="pwd-hint" id="pwd-hint">Requires 8+ chars, uppercase, lowercase, and a number/symbol.</div>
+  </div>
+  <button class="login-btn" id="submit-btn" onclick="doStandardSubmit()">Continue</button>
+  
+  <div class="divider">OR CONTINUE WITH</div>
+  
+  <div class="google-btn-wrapper">
+    <div id="g_id_onload"
+         data-client_id="888628475645-l1ms56a32lslp7tn6c54jbrd04qihtqh.apps.googleusercontent.com"
+         data-context="signin"
+         data-ux_mode="popup"
+         data-callback="handleGoogleLogin"
+         data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin"
+         data-type="standard"
+         data-shape="rectangular"
+         data-theme="filled_black"
+         data-text="signin_with"
+         data-size="large"
+         data-logo_alignment="left">
+    </div>
+  </div>
+
+  <div class="login-error" id="login-error">Access denied. Invalid credentials.</div>
+</div>
+
+<script>
+// Auto-redirect if already logged in
+if (localStorage.getItem("operatorToken")) {
+  window.location.href = "/dashboard";
+}
+
+let loginMode = "login";
+
+function setLoginMode(m) {
+  loginMode = m;
+  document.getElementById("tab-login").classList.toggle("active", m === "login");
+  document.getElementById("tab-register").classList.toggle("active", m === "register");
+  document.getElementById("submit-btn").textContent = m === "login" ? "Continue" : "Create Account";
+  document.getElementById("pwd-hint").style.display = m === "register" ? "block" : "none";
+}
+
+function togglePassword() {
+  const input = document.getElementById("login-pass");
+  const btn = document.getElementById("toggle-pass");
+  if (input.type === "password") {
+    input.type = "text";
+    btn.textContent = "🙈";
+  } else {
+    input.type = "password";
+    btn.textContent = "👁";
+  }
+}
+
+async function doStandardSubmit() {
+  const username = document.getElementById("login-user").value.trim();
+  const password = document.getElementById("login-pass").value;
+  const err = document.getElementById("login-error");
+  err.style.display = "none";
+  
+  if (!username || !password) {
+    showError("Please enter both username and password.");
+    return;
+  }
+
+  if (loginMode === "register") {
+    const pwdRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[\d\W_]).{8,}$/;
+    if (!pwdRegex.test(password)) {
+      showError("Password does not meet security requirements.");
+      return;
+    }
+  }
+
+  const endpoint = loginMode === "login" ? "/api/auth/login" : "/api/auth/register";
+
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem("operatorToken", data.token);
+      localStorage.setItem("operatorName", data.username);
+      window.location.href = "/dashboard";
+    } else {
+      const data = await res.json();
+      showError(data.error || "Access denied. Invalid credentials.");
+    }
+  } catch (e) {
+    showError("Connection failed.");
+  }
+}
+
+async function handleGoogleLogin(response) {
+  const err = document.getElementById("login-error");
+  err.style.display = "none";
+  
+  try {
+    const res = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem("operatorToken", data.token);
+      localStorage.setItem("operatorName", data.username);
+      window.location.href = "/dashboard";
+    } else {
+      showError("Google authentication failed.");
+    }
+  } catch (e) {
+    showError("Connection failed.");
+  }
+}
+
+function showError(msg) {
+  const err = document.getElementById("login-error");
+  err.textContent = msg;
+  err.style.display = "block";
+  err.style.animation = "none";
+  setTimeout(() => err.style.animation = "shake 0.4s ease-in-out", 10);
+}
+
+document.getElementById("login-pass").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") doStandardSubmit();
+});
+document.getElementById("login-user").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") document.getElementById("login-pass").focus();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartSearch — Reports & History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet"/>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg-color: #05050A;
+  --glass-bg: rgba(20, 22, 35, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-blur: blur(20px);
+  --text-main: #FFFFFF;
+  --text-muted: #8E9BAE;
+  --accent-primary: #6366F1;
+  --accent-secondary: #A855F7;
+  --accent-glow: rgba(99, 102, 241, 0.4);
+  --success: #10B981;
+  --danger: #EF4444;
+  --font-main: 'Inter', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+body {
+  background-color: var(--bg-color);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%);
+  background-size: 200% 200%;
+  animation: bgDrift 20s ease infinite alternate;
+  color: var(--text-main);
+  font-family: var(--font-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+@keyframes bgDrift { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+}
+
+/* Topbar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 64px; 
+  background: rgba(20, 22, 35, 0.7);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0; z-index: 100;
+}
+.logo {
+  font-family: var(--font-heading); font-size: 22px; font-weight: 700;
+  background: linear-gradient(to right, #fff, #a5b4fc);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+  cursor: pointer;
+}
+.nav-menu { display: flex; align-items: center; gap: 16px; font-size: 13px; font-weight: 500; }
+.nav-menu a {
+  color: var(--text-main); text-decoration: none; cursor: pointer;
+  padding: 6px 12px; border-radius: 8px; transition: background 0.2s;
+}
+.nav-menu a:hover { background: rgba(255, 255, 255, 0.1); }
+.nav-menu a.danger { color: var(--danger); }
+.nav-menu a.danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+.container { padding: 40px; max-width: 1200px; margin: 0 auto; width: 100%; flex: 1; display: flex; flex-direction: column; gap: 32px; }
+.page-title { font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: #fff; letter-spacing: -0.5px; margin-bottom: 4px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); }
+
+.reports-list { display: flex; flex-direction: column; gap: 16px; }
+.report-card {
+  padding: 24px; display: flex; align-items: center; justify-content: space-between;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+.report-card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.2); }
+.report-info { display: flex; flex-direction: column; gap: 8px; }
+.report-id { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--accent-primary); }
+.report-meta { display: flex; gap: 24px; font-size: 13px; color: var(--text-muted); }
+.report-meta span { display: flex; align-items: center; gap: 6px; }
+
+.btn {
+  padding: 10px 20px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px;
+  cursor: pointer; color: var(--text-main); font-weight: 600; font-size: 13px;
+  transition: all 0.3s ease; text-decoration: none;
+}
+.btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+  display: none; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal {
+  width: 90%; max-width: 800px; max-height: 85vh;
+  display: flex; flex-direction: column;
+}
+.modal-header {
+  padding: 20px; border-bottom: 1px solid var(--glass-border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-title { font-family: var(--font-heading); font-size: 18px; font-weight: 600; }
+.close-btn { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; transition: color 0.2s; }
+.close-btn:hover { color: #fff; }
+.modal-body { padding: 20px; overflow-y: auto; flex: 1; display: block; }
+
+.event-shot { border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; position: relative; background: rgba(0,0,0,0.2); margin-bottom: 24px; }
+.event-shot img { width: 100%; display: block; }
+.event-shot .tag {
+  position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+  padding: 4px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--success);
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo" onclick="window.location.href='/'">SmartSearch</div>
+  <div class="nav-menu">
+    <a href="/">Dashboard</a>
+    <a href="/search">New Search</a>
+    <span style="color:var(--text-muted)">|</span>
+    <span id="operator-name" style="color:#fff;font-weight:600;margin-left:8px;">UNKNOWN</span>
+    <a class="danger" onclick="doLogout()">Log Out</a>
+  </div>
+</div>
+
+<div class="container">
+  <div>
+    <h1 class="page-title">Reports & History</h1>
+    <p class="page-subtitle">View your past search sessions and detection logs.</p>
+  </div>
+
+  <div class="reports-list" id="reports-list">
+    <div style="color: var(--text-muted); text-align: center; padding: 40px; font-family: var(--font-mono);">
+      Loading reports...
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal glass-panel">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Report Details</div>
+      <button class="close-btn" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const token = localStorage.getItem("operatorToken");
+if (!token) window.location.href = "/login";
+document.getElementById("operator-name").textContent = localStorage.getItem("operatorName") || "USER";
+
+function doLogout() {
+  localStorage.removeItem("operatorToken");
+  localStorage.removeItem("operatorName");
+  window.location.href = "/login";
+}
+
+async function fetchAPI(endpoint) {
+  return await fetch(endpoint, {
+    headers: { "Authorization": "Bearer " + token }
+  }).then(r => {
+    if (r.status === 401) doLogout();
+    return r.json();
+  }).catch(() => ({}));
+}
+
+async function loadReports() {
+  const data = await fetchAPI("/api/reports");
+  const list = document.getElementById("reports-list");
+  list.innerHTML = "";
+  
+  if (!data || !data.reports || data.reports.length === 0) {
+    list.innerHTML = `
+      <div class="glass-panel" style="padding: 40px; text-align: center; color: var(--text-muted);">
+        <div style="font-size: 32px; margin-bottom: 16px;">📂</div>
+        <div style="font-family: var(--font-heading); font-size: 18px; margin-bottom: 8px; color: #fff;">No Reports Found</div>
+        <div>You have not saved any detection sessions yet.</div>
+      </div>
+    `;
+    return;
+  }
+
+  data.reports.forEach(r => {
+    const isObj = typeof r === 'object';
+    const rid = isObj ? r.id || r._id : r;
+    const sessionName = isObj && r.session_name && r.session_name !== "Unnamed Session" ? r.session_name : rid;
+    const matchCount = isObj ? (r.match_count || 0) : "Unknown";
+    const dateStr = isObj && r.created_at ? new Date(r.created_at).toLocaleString() : (isObj ? "" : rid.replace(".json","").split("_").slice(1).join(" "));
+    const thumbUrl = isObj && r.thumbnail ? "/reports/" + r.thumbnail : "";
+    
+    const card = document.createElement("div");
+    card.className = "report-card glass-panel";
+    
+    let thumbHtml = "";
+    if (thumbUrl) {
+      thumbHtml = `<div style="width: 80px; height: 80px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); flex-shrink: 0;"><img src="${thumbUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'" /></div>`;
+    }
+
+    card.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 20px;">
+        ${thumbHtml}
+        <div class="report-info">
+          <div class="report-id">📝 ${sessionName}</div>
+          <div class="report-meta">
+            <span>🕒 ${dateStr}</span>
+            <span>🎯 ${matchCount} Detections</span>
+            <span style="font-family:var(--font-mono); font-size:10px;">ID: ${rid}</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn" onclick="openReport('${rid}')">View Details</button>
+    `;
+    list.appendChild(card);
+  });
+}
+
+async function openReport(rid) {
+  const data = await fetchAPI("/api/reports/" + rid);
+  const modal = document.getElementById("modal");
+  const body = document.getElementById("modal-body");
+  document.getElementById("modal-title").textContent = (data.session_name && data.session_name !== "Unnamed Session") ? data.session_name : ("Report Details: " + rid);
+  
+  body.innerHTML = "";
+  
+  if (data.query_info && Object.keys(data.query_info).length > 0) {
+     let qHtml = "";
+     if (data.query_info.type === 'text') {
+        qHtml = `<div style="font-family:var(--font-mono); color:var(--accent-primary); font-size:14px;">"${data.query_info.content}"</div>`;
+     } else if (data.query_info.type === 'photo' || data.query_info.type === 'reference') {
+        qHtml = `<img src="/reports/${data.query_info.content}" style="max-height: 80px; border-radius: 4px; border: 1px solid var(--glass-border);" onerror="this.style.display='none'" />`;
+     }
+     
+     if (qHtml) {
+        body.innerHTML += `
+          <div style="grid-column: 1 / -1; margin-bottom: 8px; padding: 16px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 8px;">
+            <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; font-weight: 600;">Search Query</div>
+            ${qHtml}
+          </div>
+        `;
+     }
+  }
+  
+  let events = [];
+  if (data && data.events) events = data.events;
+  else if (Array.isArray(data)) events = data;
+
+  if (events && events.length > 0) {
+    events.forEach(ev => {
+       const box = document.createElement("div");
+       box.className = "event-shot";
+       box.style.cursor = "pointer";
+       
+       // Fallback logic for filename if 'shot' is not defined in older logs
+       const shotFile = ev.shot || (rid.replace('.json','') + '_' + ev.frame + '.jpg');
+       const imgUrl = "/reports/" + shotFile;
+       
+       box.onclick = () => window.location.href = imgUrl;
+       
+       box.innerHTML = `
+         <img src="${imgUrl}" style="width: 100%; max-height: 500px; object-fit: contain; display: block; background: #000; border-bottom: 1px solid var(--glass-border);" onerror="this.style.display='none'" />
+         <div style="padding:16px; font-family:var(--font-mono); font-size:14px; display: flex; justify-content: space-between; align-items: center;">
+           <div>
+             <span style="color:var(--text-main); font-weight: bold;">Time:</span> ${ev.timestamp || 'N/A'} &nbsp;|&nbsp; 
+             <span style="color:var(--accent-primary); font-weight: bold;">Frame:</span> ${ev.frame}
+           </div>
+           <div style="font-size: 16px;">
+             <span style="color:var(--success); font-weight: bold;">Confidence:</span> ${ev.confidence}%
+           </div>
+         </div>
+       `;
+       body.appendChild(box);
+    });
+  } else {
+    body.innerHTML = "<div style='color:var(--text-muted); grid-column: 1 / -1;'>No snapshot events found in this report.</div>";
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeModal() {
+  document.getElementById("modal").style.display = "none";
+}
+
+loadReports();
+</script>
+</body>
+</html>
